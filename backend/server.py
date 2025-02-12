@@ -2,6 +2,7 @@ import yfinance as yf
 import requests
 from textblob import TextBlob
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 def fetch_stock_data(symbols):
@@ -38,6 +39,14 @@ def generate_recommendations(buying_power, portfolio, stock_data, sentiment):
     return recommendations
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class UserInput(BaseModel):
     buying_power: float
