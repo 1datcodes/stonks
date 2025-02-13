@@ -4,6 +4,7 @@ from textblob import TextBlob
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import os
 
 def fetch_stock_data(symbols):
     data = {}
@@ -14,7 +15,7 @@ def fetch_stock_data(symbols):
     return data
 
 def fetch_news_headlines(query):
-    api_key = "46dab4f78b084ffa878da8cdeb882943"
+    api_key = os.environ.get('NEWS_API_KEY')
     url = f"https://newsapi.org/v2/everything?q={query}&language=en&apiKey={api_key}"
     response = requests.get(url)
     if response.status_code == 200:
