@@ -4,7 +4,10 @@ from textblob import TextBlob
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from dotenv import load_dotenv
 import os
+
+load_dotenv()
 
 def fetch_stock_data(symbols):
     data = {}
@@ -12,14 +15,16 @@ def fetch_stock_data(symbols):
         ticker = yf.Ticker(sym)
         history = ticker.history(period="1d")
         data[sym] = history['Close'].iloc[-1]
+    print(data)
     return data
 
 def fetch_news_headlines(query):
-    api_key = os.environ.get('NEWS_API_KEY')
+    api_key = os.getenv('NEWS_API_KEY')
     url = f"https://newsapi.org/v2/everything?q={query}&language=en&apiKey={api_key}"
     response = requests.get(url)
     if response.status_code == 200:
         articles = response.json().get('articles', [])
+        print(articles)
         return [article['title'] for article in articles]
     return []
 
@@ -37,6 +42,7 @@ def generate_recommendations(buying_power, portfolio, stock_data, sentiment):
         elif stock in portfolio and sentiment < -0.1:
             recommendations['sell'].append({'stock': stock, 'price': price})
             
+    print(recommendations)
     return recommendations
 
 app = FastAPI()
@@ -61,10 +67,10 @@ async def recommend_stocks(user_input: UserInput):
     stock_data = fetch_stock_data(stock_symbols)
     headlines = fetch_news_headlines(user_input.news_query)
     sentiment = analyze_news_sentiments(headlines)
-    recommentations = generate_recommendations(
+    recommendations = generate_recommendations(
         user_input.buying_power, user_input.portfolio, stock_data, sentiment
     )
-    return recommentations
+    return recommendations
 
 if __name__ == "__main__":
     import uvicorn
