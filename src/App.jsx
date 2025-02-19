@@ -18,12 +18,14 @@ function App() {
       portfolio: portfolioData,
       news_query: newsQuery
     }
+    console.log(payload)
     const response = await fetch("http://localhost:8000/recommend", {
       method: 'POST',
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     })
     const data = await response.json()
+    console.log(data)
     setRecommendation(data)
   }
 

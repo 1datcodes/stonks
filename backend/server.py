@@ -18,13 +18,19 @@ def fetch_stock_data(symbols):
     print(data)
     return data
 
+def fetch_company_names(symbol):
+    ticker = yf.Ticker(symbol)
+    return ticker.info['longName']
+
 def fetch_news_headlines(query):
+    if not query:
+        query = "US stocks"
     api_key = os.getenv('NEWS_API_KEY')
     url = f"https://newsapi.org/v2/everything?q={query}&language=en&apiKey={api_key}"
     response = requests.get(url)
     if response.status_code == 200:
         articles = response.json().get('articles', [])
-        print(articles)
+        # print("Articles:", articles)
         return [article['title'] for article in articles]
     return []
 
@@ -32,17 +38,24 @@ def analyze_news_sentiments(headlines):
     total_sentiment = 0
     for headline in headlines:
         total_sentiment += TextBlob(headline).sentiment.polarity
+    
+    sentiment = total_sentiment / len(headlines) if headlines else 0
+    print(f"Sentiment: {sentiment}")
     return total_sentiment / len(headlines) if headlines else 0
 
 def generate_recommendations(buying_power, portfolio, stock_data, sentiment):
     recommendations = {'buy': [], 'sell': []}
+    print("Stock_data:", stock_data)
     for stock, price in stock_data.items():
-        if sentiment > 0.1 and stock not in portfolio and buying_power >= price:
+        print("Stock:", stock)
+        print("Price:", price)
+        print(sentiment)
+        if sentiment > 0.1 and stock not in portfolio.keys() and float(buying_power) >= price:
             recommendations['buy'].append({'stock': stock, 'price': price})
-        elif stock in portfolio and sentiment < -0.1:
+        elif stock in portfolio.keys() and sentiment < -0.1:
             recommendations['sell'].append({'stock': stock, 'price': price})
             
-    print(recommendations)
+    print("recommendations:", recommendations)
     return recommendations
 
 app = FastAPI()
@@ -63,10 +76,12 @@ class UserInput(BaseModel):
     
 @app.post("/recommend")
 async def recommend_stocks(user_input: UserInput):
-    stock_symbols = ["AAPL", "GOOGL", "AMZN", "MSFT", "TSLA"]
+    print(user_input)
+    stock_symbols = user_input.portfolio
     stock_data = fetch_stock_data(stock_symbols)
     headlines = fetch_news_headlines(user_input.news_query)
     sentiment = analyze_news_sentiments(headlines)
+    print("sentiment:", sentiment)
     recommendations = generate_recommendations(
         user_input.buying_power, user_input.portfolio, stock_data, sentiment
     )
