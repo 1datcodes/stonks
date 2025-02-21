@@ -1,68 +1,88 @@
+import os
 import yfinance as yf
 import requests
 from textblob import TextBlob
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
-import os
+from urllib.parse import quote_plus
 
-load_dotenv()
+load_dotenv()  # ensure your .env file is present with NEWS_API_KEY
 
 def fetch_stock_data(symbols):
     data = {}
+    symbols = list(symbols)  # convert dict_keys to list if needed
     for sym in symbols:
-        ticker = yf.Ticker(sym)
-        history = ticker.history(period="1d")
-        data[sym] = history['Close'].iloc[-1]
-    print(data)
+        try:
+            ticker = yf.Ticker(sym)
+            history = ticker.history(period="1d")
+            if history.empty:
+                print(f"No data available for {sym}")
+                continue
+            data[sym] = history['Close'].iloc[-1]
+        except Exception as e:
+            print(f"Error fetching data for {sym}: {e}")
     return data
 
-def fetch_company_names(symbol):
-    ticker = yf.Ticker(symbol)
-    return ticker.info['longName']
-
-def fetch_news_headlines(query):
-    if not query:
-        query = "US stocks"
-    api_key = os.getenv('NEWS_API_KEY')
+def fetch_news_headlines(stock):
+    # Accept a single stock symbol (or company name) as a string
+    query = quote_plus(stock)  # URL encode the stock symbol
+    api_key = os.getenv("NEWS_API_KEY")
+    if not api_key:
+        raise ValueError("NEWS_API_KEY environment variable not found.")
     url = f"https://newsapi.org/v2/everything?q={query}&language=en&apiKey={api_key}"
     response = requests.get(url)
     if response.status_code == 200:
-        articles = response.json().get('articles', [])
-        # print("Articles:", articles)
-        return [article['title'] for article in articles]
-    return []
+        articles = response.json().get("articles", [])
+        headlines = [article.get("title", "No Title") for article in articles]
+        return headlines
+    else:
+        print(f"Error: {response.status_code} - {response.text}")
+        return []
 
 def analyze_news_sentiments(headlines):
-    total_sentiment = 0
-    for headline in headlines:
-        total_sentiment += TextBlob(headline).sentiment.polarity
-    
-    sentiment = total_sentiment / len(headlines) if headlines else 0
-    print(f"Sentiment: {sentiment}")
-    return total_sentiment / len(headlines) if headlines else 0
+    if not headlines:
+        return 0
+    sentiments = [TextBlob(headline).sentiment.polarity for headline in headlines]
+    avg_sentiment = sum(sentiments) / len(sentiments)
+    return avg_sentiment
 
-def generate_recommendations(buying_power, portfolio, stock_data, sentiment):
+def get_stock_sentiment(stock):
+    headlines = fetch_news_headlines(stock)
+    sentiment = analyze_news_sentiments(headlines)
+    return sentiment, headlines
+
+def generate_recommendations_individual(buying_power, portfolio, candidate_stocks):
     recommendations = {'buy': [], 'sell': []}
-    print("Stock_data:", stock_data)
-    for stock, price in stock_data.items():
-        print("Stock:", stock)
-        print("Price:", price)
-        print(sentiment)
-        if sentiment > 0.1 and stock not in portfolio.keys() and float(buying_power) >= price:
-            recommendations['buy'].append({'stock': stock, 'price': price})
-        elif stock in portfolio.keys() and sentiment < -0.1:
-            recommendations['sell'].append({'stock': stock, 'price': price})
-            
-    print("recommendations:", recommendations)
+    stock_data = fetch_stock_data(candidate_stocks)
+    sentiments = generate_news_sentiments(portfolio)
+    print(stock_data)
+    
+    for stock in candidate_stocks:
+        if stock not in stock_data or stock not in sentiments:
+            continue
+        sentiment = sentiments[stock]
+        if sentiment > 0.1:
+            recommendations['buy'].append([stock, stock_data[stock]])
+        else:
+            if stock in portfolio:
+                recommendations['sell'].append(stock)
     return recommendations
 
-app = FastAPI()
 
+def generate_news_sentiments(portfolio):
+    sentiments = {}
+    for stock in portfolio.keys():
+        sentiment, headlines = get_stock_sentiment(stock)
+        sentiments[stock] = sentiment
+    return sentiments
+
+# FastAPI app setup
+app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # In production, restrict origins appropriately
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -70,20 +90,23 @@ app.add_middleware(
 
 class UserInput(BaseModel):
     buying_power: float
-    portfolio: dict
-    news_query: str = "US stocks"
-    
-    
+    portfolio: dict  # Example: {"AAPL": 10, "TSLA": 5}
+    # Optionally, add a field for a candidate watchlist:
+    candidate_stocks: list = None
+
 @app.post("/recommend")
 async def recommend_stocks(user_input: UserInput):
-    print(user_input)
-    stock_symbols = user_input.portfolio
-    stock_data = fetch_stock_data(stock_symbols)
-    headlines = fetch_news_headlines(user_input.news_query)
-    sentiment = analyze_news_sentiments(headlines)
-    print("sentiment:", sentiment)
-    recommendations = generate_recommendations(
-        user_input.buying_power, user_input.portfolio, stock_data, sentiment
+    print("Received input:", user_input)
+    
+    # Determine candidate stocks:
+    # Either use the provided candidate list or default to portfolio keys (or combine with a broader watchlist)
+    if user_input.candidate_stocks:
+        candidate_stocks = user_input.candidate_stocks
+    else:
+        candidate_stocks = list(user_input.portfolio.keys())
+    
+    recommendations = generate_recommendations_individual(
+        user_input.buying_power, user_input.portfolio, candidate_stocks
     )
     return recommendations
 

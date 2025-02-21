@@ -5,7 +5,7 @@ function App() {
   const [buyingPower, setBuyingPower] = useState('')
   const [portfolio, setPortfolio] = useState('')
   const [newsQuery, setNewsQuery] = useState('')
-  const [recommendation, setRecommendation] = useState(null)
+  const [recommendation, setRecommendation] = useState("")
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -27,6 +27,8 @@ function App() {
     const data = await response.json()
     console.log(data)
     setRecommendation(data)
+    console.log(data.buy)
+    console.log(data.sell)
   }
 
   return (
@@ -59,7 +61,7 @@ function App() {
           <h3>Buy:</h3>
           <ul>
             {recommendation.buy.map((rec, idx) => (
-              <li key={idx}>{rec.stock} at ${rec.price}</li>
+              <li key={idx}>{rec[0]} at ${rec[2]}</li>
             ))}
           </ul>
           <h3>Sell:</h3>
