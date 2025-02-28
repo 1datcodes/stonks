@@ -61,13 +61,13 @@ function App() {
           <h3>Buy:</h3>
           <ul>
             {recommendation.buy.map((rec, idx) => (
-              <li key={idx}>{rec[0]} at ${rec[2]}</li>
+              <li key={idx}>{rec[0]} at ${rec[1].toFixed(2)}</li>
             ))}
           </ul>
           <h3>Sell:</h3>
           <ul>
             {recommendation.sell.map((rec, idx) => (
-              <li key={idx}>{rec.stock} at ${rec.price}</li>
+              <li key={idx}>{rec}</li>
             ))}
           </ul>
         </div>
