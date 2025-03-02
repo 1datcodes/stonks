@@ -3,32 +3,26 @@ import './App.css'
 
 function App() {
   const [buyingPower, setBuyingPower] = useState('')
-  const [portfolio, setPortfolio] = useState('')
-  const [newsQuery, setNewsQuery] = useState('')
-  const [recommendation, setRecommendation] = useState("")
+  const [portfolioFile, setPortfolioFile] = useState(null)
+  const [recommendation, setRecommendation] = useState('')
+
+  const handleFileChange = (e) => {
+    setPortfolioFile(e.target.files[0])
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const portfolioSymbols = portfolio.split(',').map(sym => sym.trim())
-    const portfolioData = {}
-    portfolioSymbols.forEach(sym => portfolioData[sym] = true)
-
-    const payload = {
-      buying_power: buyingPower,
-      portfolio: portfolioData,
-      news_query: newsQuery
-    }
-    console.log(payload)
-    const response = await fetch("http://localhost:8000/recommend", {
+    const formData = new FormData()
+    formData.append('buying_power', buyingPower)
+    formData.append('portfolio', portfolioFile)
+    
+    const response = await fetch('http://localhost:8000/recommendations', {
       method: 'POST',
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: formData
     })
     const data = await response.json()
-    console.log(data)
     setRecommendation(data)
-    console.log(data.buy)
-    console.log(data.sell)
+    console.log(data)
   }
 
   return (
@@ -45,11 +39,11 @@ function App() {
         </label>  
         <br />
         <label>
-          Portfolio (comma-separated symbols):
+          Portfolio CSV File:
           <input
-            type='text'
-            value={portfolio}
-            onChange={e => setPortfolio(e.target.value)}
+            type='file'
+            accept='.csv'
+            onChange={handleFileChange}
           />
         </label>
         <br />

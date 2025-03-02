@@ -1,8 +1,9 @@
 import os
+import csv
 import yfinance as yf
 import requests
 from textblob import TextBlob
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -95,21 +96,23 @@ class UserInput(BaseModel):
     candidate_stocks: list = None
 
 @app.post("/recommend")
-async def recommend_stocks(user_input: UserInput):
-    print("Received input:", user_input)
-    
-    # Determine candidate stocks:
-    # Either use the provided candidate list or default to portfolio keys (or combine with a broader watchlist)
-    if user_input.candidate_stocks:
-        candidate_stocks = user_input.candidate_stocks
-    else:
-        candidate_stocks = list(user_input.portfolio.keys())
-    
+async def recommend_stocks(buying_power: float = Form(...), portfolio: UploadFile = File(...)):
+    print(f"Received buying power: {buying_power}")
+    print(f"Received portfolio: {portfolio.filename}")
+    portfolio_data = {}
+    content = await portfolio.read()
+    decoded_content = content.decode('utf-8').splitlines()
+    reader = csv.reader(decoded_content)
+    for row in reader:
+        symbol, shares = row
+        portfolio_data[symbol] = int(shares)
+        
+    candidate_stocks = list(portfolio_data.keys())
     recommendations = generate_recommendations_individual(
-        user_input.buying_power, user_input.portfolio, candidate_stocks
+        buying_power, portfolio_data, candidate_stocks
     )
     return recommendations
-
+    
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
