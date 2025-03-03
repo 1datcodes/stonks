@@ -16,7 +16,7 @@ function App() {
     formData.append('buying_power', buyingPower)
     formData.append('portfolio', portfolioFile)
     
-    const response = await fetch('http://localhost:8000/recommendations', {
+    const response = await fetch('http://localhost:8000/recommend', {
       method: 'POST',
       body: formData
     })

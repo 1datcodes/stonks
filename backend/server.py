@@ -58,7 +58,6 @@ def generate_recommendations_individual(buying_power, portfolio, candidate_stock
     recommendations = {'buy': [], 'sell': []}
     stock_data = fetch_stock_data(candidate_stocks)
     sentiments = generate_news_sentiments(portfolio)
-    print(stock_data)
     
     for stock in candidate_stocks:
         if stock not in stock_data or stock not in sentiments:
@@ -89,28 +88,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class UserInput(BaseModel):
-    buying_power: float
-    portfolio: dict  # Example: {"AAPL": 10, "TSLA": 5}
-    # Optionally, add a field for a candidate watchlist:
-    candidate_stocks: list = None
-
 @app.post("/recommend")
 async def recommend_stocks(buying_power: float = Form(...), portfolio: UploadFile = File(...)):
-    print(f"Received buying power: {buying_power}")
-    print(f"Received portfolio: {portfolio.filename}")
     portfolio_data = {}
     content = await portfolio.read()
     decoded_content = content.decode('utf-8').splitlines()
-    reader = csv.reader(decoded_content)
+    print("decoded", decoded_content)
+    reader = csv.DictReader(decoded_content)
     for row in reader:
-        symbol, shares = row
-        portfolio_data[symbol] = int(shares)
-        
+       symbol = row['Symbol']
+       shares = int(row['Shares'].replace('"', ''))
+       portfolio_data[symbol] = shares 
     candidate_stocks = list(portfolio_data.keys())
+    print("candidate", candidate_stocks)
+    print("portfolio", portfolio_data)
+    print("shares", portfolio_data.values())
+    print("buying power", buying_power)
     recommendations = generate_recommendations_individual(
         buying_power, portfolio_data, candidate_stocks
     )
+    print(recommendations)
     return recommendations
     
 if __name__ == "__main__":
