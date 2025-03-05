@@ -55,6 +55,7 @@ def get_stock_sentiment(stock):
     return sentiment, headlines
 
 def generate_recommendations_individual(buying_power, portfolio, candidate_stocks):
+    print("portfolio:", portfolio)
     recommendations = {'buy': [], 'sell': []}
     stock_data = fetch_stock_data(candidate_stocks)
     sentiments = generate_news_sentiments(portfolio)
@@ -63,11 +64,17 @@ def generate_recommendations_individual(buying_power, portfolio, candidate_stock
         if stock not in stock_data or stock not in sentiments:
             continue
         sentiment = sentiments[stock]
+        current_price = stock_data[stock]
+        shares_owned = portfolio[stock]
+        
         if sentiment > 0.1:
-            recommendations['buy'].append([stock, stock_data[stock]])
+            max_shares_to_buy = int(buying_power // current_price)
+            if max_shares_to_buy > 0:
+                recommendations['buy'].append([stock, stock_data[stock], max_shares_to_buy])
+                buying_power -= max_shares_to_buy * current_price
         else:
             if stock in portfolio:
-                recommendations['sell'].append(stock)
+                recommendations['sell'].append([stock, shares_owned])
     return recommendations
 
 
